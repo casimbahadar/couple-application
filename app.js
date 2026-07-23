@@ -111,7 +111,7 @@ const T = {
     sendCode:'Send me a code',
     sending:'Sending…',
     otpTitle:'check your email.',
-    otpSub:'We sent a 6-digit code to {email}. Enter it below.',
+    otpSub:'We sent a code to {email}. Enter it below (check spam too).',
     codeLabel:'The code',
     verify:'Sign in',
     checking:'Checking…',
