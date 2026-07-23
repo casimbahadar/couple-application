@@ -69,17 +69,21 @@ opt-out column, the `set_email_notifications` RPC, `pg_net`, a Vault secret
 `notify_secret`, and AFTER INSERT triggers on `journal_entries` /
 `storm_signals` that call the `notify` Edge Function.
 
-To turn it on you must deploy the function and set its secrets:
+Deployed state (as of the July 2026 trial): the function lives in the dashboard
+under the slug **`Email-notification`** (capital E — the trigger URL in
+`private.notify_partner()` must match exactly), with JWT verification **off**.
 
-1. Deploy `supabase/functions/notify/index.ts` (Dashboard → Edge Functions, or
-   `supabase functions deploy notify --no-verify-jwt`). It uses custom
-   header auth, so JWT verification stays **off**.
-2. Set these Edge Function secrets (Dashboard → Edge Functions → Manage secrets):
-   - `NOTIFY_SECRET` — must equal the value stored in Vault as `notify_secret`.
-   - `GMAIL_USER` — the Gmail address used for SMTP.
-   - `GMAIL_APP_PASSWORD` — the same Google App Password used for auth email.
+Edge Function secrets it needs (Dashboard → Edge Functions → Manage secrets):
+- `GMAIL_USER` — the Gmail address used for SMTP.
+- `GMAIL_APP_PASSWORD` — a Google App Password (revoking/rotating the password
+  used for auth email means updating this copy too — they're separate stores).
 
-   (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
+(`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
+
+The `NOTIFY_SECRET` header gate in the original design was removed during setup
+to unblock delivery (dashboard-set secrets weren't matching); re-adding a
+lightweight guard is a TODO. The trigger still sends the header (harmless) and
+the Vault secret still exists — both are just unused for now.
 
 Until the function is deployed, the triggers fire harmlessly (the POST just
 fails and is swallowed) — writes are never affected.

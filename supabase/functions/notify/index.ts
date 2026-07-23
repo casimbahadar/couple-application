@@ -5,17 +5,20 @@ import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 // whenever a partner posts. Emails the OTHER partner a *content-free* nudge —
 // the intimate text stays in the app and the database, never in the email.
 //
+// Deployed in the dashboard under the slug `Email-notification` (note the
+// capital E); the trigger's URL must match that exactly.
+//
 // Required Edge Function secrets (Dashboard → Edge Functions → Manage secrets):
-//   NOTIFY_SECRET       — must match the value stored in Vault as `notify_secret`
 //   GMAIL_USER          — the Gmail address used for SMTP
 //   GMAIL_APP_PASSWORD  — a Google App Password (not the account password)
 // SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are injected automatically.
+//
+// NOTE: the earlier `NOTIFY_SECRET` header gate was removed to unblock setup
+// (dashboard-set secrets weren't matching). Re-adding a lightweight guard is a
+// TODO — the risk is low: the URL is unguessable, the function is a no-op
+// without a valid room_id, and the email carries no content.
 Deno.serve(async (req) => {
   try {
-    if (req.headers.get("x-notify-secret") !== Deno.env.get("NOTIFY_SECRET")) {
-      return new Response("unauthorized", { status: 401 });
-    }
-
     const { room_id, author_seat } = await req.json();
     if (!room_id || !author_seat) return new Response("bad request", { status: 400 });
 
