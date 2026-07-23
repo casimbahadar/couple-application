@@ -157,7 +157,11 @@ const T = {
     errSave:'Couldn’t save — check your connection.',
     errNet:'Couldn’t reach the server.',
     offline:'Offline — showing your last saved copy.',
-    closeAnyway:'Some things left here haven’t been seen yet. Close anyway?'
+    closeAnyway:'Some things left here haven’t been seen yet. Close anyway?',
+    notifyTitle:'Email notifications',
+    notifyOn:'On',
+    notifyOff:'Off',
+    notifyNote:'When {name} leaves something, we email you a gentle nudge — never the words themselves. Turn this off any time.'
   },
   ur: {}, pa: {}
 };
@@ -974,6 +978,14 @@ function vSettings(){
     <p class="small soft" style="margin-top:8px">${esc(t('importV1Note'))}</p>
   </div>
   <div class="card">
+    <p class="eyebrow">${esc(t('notifyTitle'))}</p>
+    <div class="segs">
+      <button class="chip ${S.emailNotify?'on':''}" onclick="setNotify(true)">${esc(t('notifyOn'))}</button>
+      <button class="chip ${!S.emailNotify?'on':''}" onclick="setNotify(false)">${esc(t('notifyOff'))}</button>
+    </div>
+    <p class="small soft">${esc(t('notifyNote',{name:nameOf(them)}))}</p>
+  </div>
+  <div class="card">
     <p class="eyebrow">${esc(t('account'))}</p>
     <button class="big" style="margin:0 0 10px" onclick="doSignOut()">${esc(t('signOut'))}</button>
     <button class="big" style="color:var(--danger); margin:0" onclick="startFresh()">${esc(t('fresh'))}</button>
@@ -988,6 +1000,11 @@ async function saveSettings(){
   await roomUpdate({ name: appName });
 }
 function setLang(code){ S.lang = code; localStorage.setItem('cp_lang', code); render(); }
+async function setNotify(on){
+  S.emailNotify = on; render();
+  const { error } = await sb.rpc('set_email_notifications', { p_on: on });
+  if(error){ toast(t('errSave')); await safeRefetch(); }
+}
 
 async function startFresh(){
   if(!confirm(t('leaveConfirm'))) return;

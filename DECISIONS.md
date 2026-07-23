@@ -27,3 +27,11 @@ Append-only, dated. One line each, with the why.
 - 2026-07-23 — Included the one-time v1-backup importer (Settings) that inserts a
   v1 export's journal entries into the room with original timestamps preserved —
   completing Phase B's remaining "bring in a backup" item.
+- 2026-07-23 — Email notifications: AFTER INSERT triggers on journal_entries and
+  storm_signals call an Edge Function (via pg_net) that emails the *other*
+  partner a nudge. Emails are deliberately **content-free** — the intimate text
+  never leaves the app/DB — per sensitive-app-design. Per-member opt-out lives
+  on members.email_notifications, toggled from Settings via the
+  set_email_notifications RPC (members is otherwise read-only to clients). The
+  trigger is fire-and-forget and swallows errors so a failed notification can
+  never block a write. Real native push is deferred to Phase C (Capacitor).

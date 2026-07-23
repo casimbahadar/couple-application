@@ -57,6 +57,33 @@ me a code" will fail.** In the Supabase dashboard for project `couple-app`:
 
 Leaked-password protection can stay off — there are no passwords here.
 
+## Email notifications (optional)
+
+When one partner posts, the other gets a **content-free** email nudge ("… left
+something for you — open the app"). The words never leave the app/database. Each
+person can turn it off in **Settings → Email notifications** (stored on
+`members.email_notifications`).
+
+Backend already applied (migration `couple_app_email_notifications`): the
+opt-out column, the `set_email_notifications` RPC, `pg_net`, a Vault secret
+`notify_secret`, and AFTER INSERT triggers on `journal_entries` /
+`storm_signals` that call the `notify` Edge Function.
+
+To turn it on you must deploy the function and set its secrets:
+
+1. Deploy `supabase/functions/notify/index.ts` (Dashboard → Edge Functions, or
+   `supabase functions deploy notify --no-verify-jwt`). It uses custom
+   header auth, so JWT verification stays **off**.
+2. Set these Edge Function secrets (Dashboard → Edge Functions → Manage secrets):
+   - `NOTIFY_SECRET` — must equal the value stored in Vault as `notify_secret`.
+   - `GMAIL_USER` — the Gmail address used for SMTP.
+   - `GMAIL_APP_PASSWORD` — the same Google App Password used for auth email.
+
+   (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
+
+Until the function is deployed, the triggers fire harmlessly (the POST just
+fails and is swallowed) — writes are never affected.
+
 ## Deploy to GitHub Pages
 
 1. Merge to the default branch (or point Pages at this branch).

@@ -136,7 +136,7 @@ async function fetchRoom(){
   const uid = await currentUserId();
   if(!uid) return false;
 
-  const mRes = await sb.from('members').select('room_id, user_id, seat, display_name');
+  const mRes = await sb.from('members').select('room_id, user_id, seat, display_name, email_notifications');
   if(mRes.error) throw mRes.error;
   const members = mRes.data || [];
   const mine = members.find(m => m.user_id === uid);
@@ -220,6 +220,7 @@ function buildS(room, members, mySeat, journalRows, storm){
   const people = { a:{ name:'' }, b:{ name:'' } };
   for(const m of members){ if(people[m.seat]) people[m.seat].name = m.display_name || ''; }
 
+  const mineRow = members.find(m => m.seat === mySeat);
   const deck = normalizeDeck(room.deck);
 
   S = {
@@ -228,6 +229,7 @@ function buildS(room, members, mySeat, journalRows, storm){
     inviteCode: room.invite_code,
     mySeat,
     active: mySeat,                       // view code reads S.active as "me"
+    emailNotify: !mineRow || mineRow.email_notifications !== false,
     partnerPresent: members.length >= 2,
     setup: true,
     appName: room.name || '',
