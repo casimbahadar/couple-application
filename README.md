@@ -1,1 +1,100 @@
 # couple-application
+
+A private, two-person space: a shared journal for ordinary days and a slower,
+structured "storm" room for the hard ones. Two people on two devices share one
+**room**; everything syncs through Supabase with row-level security.
+
+This is the synced build of the v1 feel-test — same look, copy, and flows, now
+backed by a real database instead of one device's local storage.
+
+## How it's built
+
+- **Static, no build step.** Plain `index.html` + `styles.css` + three scripts.
+  Deploys as-is to GitHub Pages.
+- **`vendor/supabase.js`** — the Supabase JS client (v2 UMD), vendored so there
+  is no runtime CDN dependency and it's ready to bundle for the Capacitor phase.
+- **`config.js`** — the project URL and the *publishable* key. The publishable
+  key is meant to ship in the client; it is not a secret. RLS protects the data.
+  The service-role key must never appear here.
+- **`sync.js`** — auth, pairing, room load, realtime, and the offline read-cache.
+  Builds a state object in the same shape the v1 UI expects.
+- **`app.js`** — the ported views and interactions.
+
+## Configuration
+
+Everything client-safe lives in `config.js`:
+
+```js
+window.CP_CONFIG = {
+  SUPABASE_URL: 'https://sjgnmwlzbejkaoaieihq.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_…'   // publishable key — safe in the client
+};
+```
+
+## ⚠️ Required before sign-in works: enable email auth in the dashboard
+
+The app uses passwordless email one-time-code sign-in. That depends on a
+dashboard setting the code can't turn on from here. **Until this is done, "Send
+me a code" will fail.** In the Supabase dashboard for project `couple-app`:
+
+1. **Authentication → Providers → Email**: enable the Email provider.
+2. Turn on the emailed one-time **code** path (not only magic links). The app
+   calls `verifyOtp(..., type:'email')`, so the 6-digit code must be sent.
+3. **Authentication → Email Templates**: make sure the template includes the
+   `{{ .Token }}` code, so the email actually shows the 6 digits.
+4. **Authentication → Rate limits**: the free-tier default is fine for four
+   people.
+
+Leaked-password protection can stay off — there are no passwords here.
+
+## Deploy to GitHub Pages
+
+1. Merge to the default branch (or point Pages at this branch).
+2. Repo **Settings → Pages → Build and deployment → Source: Deploy from a
+   branch**, folder `/ (root)`.
+3. Open the published URL. One partner taps **Start a new room** and shares the
+   invite code; the other taps **Join with a code**.
+
+## Bringing v1 entries in
+
+If you have a v1 backup file (the JSON the old single-file app exported),
+**Settings → Bring in v1 entries** imports its journal entries into your room,
+preserving their original dates, tags, acknowledgments, and resolved state. It's
+a one-time move — running it twice creates duplicates.
+
+## What's verified vs. what isn't
+
+- **Verified** (headless Chromium, `rendertest.mjs`): every screen renders
+  without error; the day-prompt and check-in **sealing** hides the partner's
+  unrevealed answers; storm rungs, reveal, and notes work; the sign-in screen
+  loads and the Supabase client initializes.
+- **Not yet verified end-to-end**: live sign-in and live database reads/writes.
+  A session can't be created until the dashboard email step above is done, so
+  the queries and realtime — written against the confirmed schema and RLS
+  policies — haven't been exercised against a live login. Do one real
+  create/join round once auth is enabled.
+
+## Known limitations (carried over deliberately)
+
+- **Intra-room sealing is a client-side courtesy.** Cross-couple isolation is
+  enforced by RLS and proven. Within a room, a determined partner could read an
+  unrevealed row directly; that moves behind security-definer RPCs before any
+  public release. Not a gate for a four-person trial.
+- **Realtime** relies on the client's auth token being applied to the realtime
+  connection (supabase-js default). If live updates lag, the app still resyncs
+  on every action and on reload.
+- **Concurrent brand-new storms**: if both partners open a fresh storm in the
+  same second, two storm rows could be created. Rare; the next load reconciles
+  to one. A `unique(room_id) where closed_at is null` index would close this if
+  it ever matters.
+- **Renaming**: display names are set when each person joins (the `members`
+  table is read-only to clients). Changing a name means leave + rejoin, or a
+  small backend RPC if that becomes annoying.
+
+## Local dev / test
+
+```bash
+npm install playwright-core          # browsers are pre-provisioned in CI images
+node smoketest.mjs                    # boots the app, checks sign-in + no errors
+node rendertest.mjs                   # injects an in-room state, renders every view
+```
