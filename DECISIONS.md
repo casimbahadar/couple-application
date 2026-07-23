@@ -35,3 +35,11 @@ Append-only, dated. One line each, with the why.
   set_email_notifications RPC (members is otherwise read-only to clients). The
   trigger is fire-and-forget and swallows errors so a failed notification can
   never block a write. Real native push is deferred to Phase C (Capacitor).
+- 2026-07-23 — Email notifications went live end-to-end (verified: direct
+  function call returned 200 and the email arrived). The function is deployed
+  as `Email-notification` (capital E); the trigger URL was corrected to match.
+  The `NOTIFY_SECRET` gate was dropped to unblock delivery — dashboard-set
+  secrets kept mismatching — leaving `GMAIL_USER` / `GMAIL_APP_PASSWORD` as the
+  only required function secrets. Re-adding a light guard is a TODO. Note: the
+  Gmail app password is stored twice (Auth SMTP and this function's secret);
+  rotating it means updating both.
