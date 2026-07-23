@@ -68,15 +68,26 @@ function clearCache(roomId){
    Requires the Email provider + email OTP to be enabled in the Supabase
    dashboard (see README). Until that is on, code delivery will fail. */
 async function authSendCode(email){
+  // emailRedirectTo points any tap-the-link fallback back at this app (not the
+  // account root), so the confirmation link can't 404. The redirect target must
+  // also be listed under Auth → URL Configuration → Redirect URLs.
+  const redirect = window.location.origin + window.location.pathname;
   const { error } = await sb.auth.signInWithOtp({
     email,
-    options: { shouldCreateUser: true }
+    options: { shouldCreateUser: true, emailRedirectTo: redirect }
   });
   if(error) throw error;
 }
 async function authVerify(email, code){
-  const { error } = await sb.auth.verifyOtp({ email, token: code.trim(), type: 'email' });
-  if(error) throw error;
+  const token = code.trim();
+  // A brand-new user's code arrives via the "Confirm signup" flow (type
+  // 'signup'); a returning user's via magic link (type 'email'). Try the
+  // common case first, then fall back so first-timers verify too.
+  const first = await sb.auth.verifyOtp({ email, token, type: 'email' });
+  if(first.error){
+    const second = await sb.auth.verifyOtp({ email, token, type: 'signup' });
+    if(second.error) throw first.error;
+  }
 }
 async function authSignOut(){
   unsubscribeRealtime();
@@ -125,7 +136,7 @@ async function fetchRoom(){
   const uid = await currentUserId();
   if(!uid) return false;
 
-  const mRes = await sb.from('members').select('room_id, user_id, seat, display_name');
+  const mRes = await sb.from('members').select('room_id, user_id, seat, display_name, email_notifications');
   if(mRes.error) throw mRes.error;
   const members = mRes.data || [];
   const mine = members.find(m => m.user_id === uid);
@@ -209,6 +220,7 @@ function buildS(room, members, mySeat, journalRows, storm){
   const people = { a:{ name:'' }, b:{ name:'' } };
   for(const m of members){ if(people[m.seat]) people[m.seat].name = m.display_name || ''; }
 
+  const mineRow = members.find(m => m.seat === mySeat);
   const deck = normalizeDeck(room.deck);
 
   S = {
@@ -217,6 +229,7 @@ function buildS(room, members, mySeat, journalRows, storm){
     inviteCode: room.invite_code,
     mySeat,
     active: mySeat,                       // view code reads S.active as "me"
+    emailNotify: !mineRow || mineRow.email_notifications !== false,
     partnerPresent: members.length >= 2,
     setup: true,
     appName: room.name || '',

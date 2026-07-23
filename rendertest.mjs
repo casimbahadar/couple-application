@@ -33,7 +33,7 @@ const result = await page.evaluate(() => {
   const now = Date.now();
   S = {
     v:1, roomId:'room-1', inviteCode:'ABC12', mySeat:'a', active:'a',
-    partnerPresent:true, setup:true, appName:'us', lang:'en',
+    partnerPresent:true, setup:true, appName:'us', lang:'en', emailNotify:true,
     people:{ a:{name:'Cas'}, b:{name:'Sam'} },
     journal:[
       { id:'j1', by:'a', ts:now-3600000, text:'a plain share', tag:'share', acks:{} },
@@ -75,6 +75,7 @@ const checks = [
   ['deck lists sections',        has(result.deck, 'Signals') && has(result.deck, 'Feeling words')],
   ['settings shows both names',  has(result.settings, 'Cas') && has(result.settings, 'Sam')],
   ['settings shows invite code', has(result.settings, 'ABC12')],
+  ['settings shows notify toggle', has(result.settings, 'Email notifications')],
   ['no view threw',              !Object.keys(result).some(k => k.endsWith('_ERR'))]
 ];
 

@@ -38,14 +38,51 @@ dashboard setting the code can't turn on from here. **Until this is done, "Send
 me a code" will fail.** In the Supabase dashboard for project `couple-app`:
 
 1. **Authentication → Providers → Email**: enable the Email provider.
-2. Turn on the emailed one-time **code** path (not only magic links). The app
-   calls `verifyOtp(..., type:'email')`, so the 6-digit code must be sent.
-3. **Authentication → Email Templates**: make sure the template includes the
-   `{{ .Token }}` code, so the email actually shows the 6 digits.
-4. **Authentication → Rate limits**: the free-tier default is fine for four
-   people.
+2. **Custom SMTP** is required to edit templates and to send at any real volume.
+   The built-in sender is rate-limited and can't be customized. Gmail works:
+   host `smtp.gmail.com`, port `465`, username = your Gmail, password = a Google
+   **App Password** (needs 2-Step Verification on — a normal password is rejected
+   with `534 5.7.9 Application-specific password required`).
+3. **Authentication → Email Templates**: add the code line to **both** the
+   **"Confirm signup"** and **"Magic Link"** templates — new users get the
+   first, returning users the second:
+   ```html
+   <p style="font-size:28px; font-weight:bold; letter-spacing:6px;">{{ .Token }}</p>
+   ```
+4. **Authentication → URL Configuration**: set **Site URL** and add a **Redirect
+   URL** of the deployed app path (e.g. `https://<user>.github.io/couple-application/`),
+   not the account root — otherwise the email's fallback link 404s.
+5. **Authentication → Rate limits**: raise "emails per hour" above your expected
+   number of testers.
 
 Leaked-password protection can stay off — there are no passwords here.
+
+## Email notifications (optional)
+
+When one partner posts, the other gets a **content-free** email nudge ("… left
+something for you — open the app"). The words never leave the app/database. Each
+person can turn it off in **Settings → Email notifications** (stored on
+`members.email_notifications`).
+
+Backend already applied (migration `couple_app_email_notifications`): the
+opt-out column, the `set_email_notifications` RPC, `pg_net`, a Vault secret
+`notify_secret`, and AFTER INSERT triggers on `journal_entries` /
+`storm_signals` that call the `notify` Edge Function.
+
+To turn it on you must deploy the function and set its secrets:
+
+1. Deploy `supabase/functions/notify/index.ts` (Dashboard → Edge Functions, or
+   `supabase functions deploy notify --no-verify-jwt`). It uses custom
+   header auth, so JWT verification stays **off**.
+2. Set these Edge Function secrets (Dashboard → Edge Functions → Manage secrets):
+   - `NOTIFY_SECRET` — must equal the value stored in Vault as `notify_secret`.
+   - `GMAIL_USER` — the Gmail address used for SMTP.
+   - `GMAIL_APP_PASSWORD` — the same Google App Password used for auth email.
+
+   (`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically.)
+
+Until the function is deployed, the triggers fire harmlessly (the POST just
+fails and is swallowed) — writes are never affected.
 
 ## Deploy to GitHub Pages
 
